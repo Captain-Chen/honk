@@ -72,12 +72,12 @@ var dungeonModule = (function() {
 		];
 	}
 	
+	// Name, Health, Attack, Speed
 	function initMonsters(){
 		monsterList = [
-			// Name, Health, Attack, Speed
 			new Creature('Slimemoss', 3, 3, 10),
-			new Creature('Omnom', 6, 4, 12),
-			new Creature('Lizardman', 11, 9, 8),
+			new Creature('Omnom', 6, 4, 12)
+			// new Creature('Lizardman', 11, 9, 8),
 			// new Creature('Wisp', 5, 4, 10),
 			// new Creature('Lilith', 6, 6, 10)
 			//new Creature('Dragon', 20, 11, 8)
@@ -93,7 +93,7 @@ var dungeonModule = (function() {
     for(var i = 0; i < numOfMonsters; i++){
       var monster = monsterList[Math.floor(Math.random() * monsterList.length)];
       monsters.push({
-        name: monster.name,
+        name: monster.name + ' #' + (i+1),
         HP: monster.HP,
 		maxHP: monster.HP,
         ATK: monster.ATK,
@@ -143,32 +143,31 @@ var dungeonModule = (function() {
 		{
 			// join the party
 			joinDungeon(sender);
-		}
-		
-		// $.panelsocketserver.updateDungeon(currentParty.users, 'playerStats'); // send update to panel
+		}	
 	}
 	
 	// main update loop
-	function mainUpdateLoop(){	
-		if(partyVictory){ // check victory flag
-			// main loop
-			resetStats();
-			$.say('Battle: ' + RoundTracker(numOfFights, numOfTotalFights));
-			startEncounter();
-			numOfFights++;
-			
-			if(numOfFights <= numOfTotalFights){
-				setTimeout(mainUpdateLoop, 5e3); // restart loop
+	function mainUpdateLoop(){
+		var t,
+		progress = 0;
+		
+		// initiate the encounter
+		startEncounter();
+		
+		// feed out combat log to chat
+		t = setInterval(
+		function(){
+			if(progress < combatDialog.length)
+			{
+				$.say(combatDialog[progress]);
 			}
 			else
 			{
-				endDungeon(); // no more fights
+				endDungeon();
+				clearInterval(t);
 			}
-		}
-		else
-		{
-			endDungeon(); // party lost
-		}
+			progress++;
+		}, 7e3);
 	}
 	
 	function startDungeon(){
@@ -185,9 +184,6 @@ var dungeonModule = (function() {
 			$.say('The adventurers return battered...');
 		}
 		clearDungeon();
-		// setTimeout(function(){
-			// $.panelsocketserver.updateDungeon([], 'clearCanvas');
-		// }, 10e3);
 	}
 	
 	function clearDungeon(){
@@ -252,8 +248,6 @@ var dungeonModule = (function() {
 			monsters.type = 'monsters',
 			energyThreshold = 100,
 			partyVictory = false;
-			
-		combatDialog = [];
 
 		if(!monsters.length){
 			$.say('The monsters are not ready. Please try again');
@@ -261,9 +255,9 @@ var dungeonModule = (function() {
 		}
 		
 		if(monsters.length > 1){
-			$.say('A ' + getList(monsters) + ' encroach upon the party!');
+			combatDialog.push('A ' + getList(monsters) + ' encroach upon the party!');
 		}else{
-			$.say('A ' + getList(monsters) + ' draws near!');
+			combatDialog.push('A ' + getList(monsters) + ' draws near!');
 		}
 		
 		// main combat loop
@@ -288,21 +282,12 @@ var dungeonModule = (function() {
 					opponent = opponents[opponentIdx];
 					
 					var died = attack(actor, opponent);
-					if(died)
-						// $.panelsocketserver.updateDungeon([opponent],'battleStats');
-						// $.panelsocketserver.updateDungeon(currentParty.users, 'playerStats');
-						opponents.splice(opponentIdx, 1);// delete creature if it died
+					if(died) opponents.splice(opponentIdx, 1);// delete creature if it died
 				}
 			}
 		}while(!hasEncounterEnded(currentParty.users, monsters));
 		
 		partyVictory = atLeastOneAlive(currentParty.users);
-		
-		// var combatResult = combatDialog[0];
-		// for(var i = 1; i < combatDialog.length; i++)
-			// combatResult += ' ' + combatDialog[i];
-		
-		// $.say(combatResult);
 	}
 	
 	function resetStats(){
@@ -323,29 +308,22 @@ var dungeonModule = (function() {
 			maxDamage = Math.floor(attacker.ATK * 1.3);
 			minDamage = Math.ceil(attacker.ATK / 4),
 			attackDamage = Math.floor(Math.random() * (maxDamage - minDamage) + minDamage),
-			attackVerb = getAttackVerb(attacker);
+			attackVerb = getAttackVerb(attacker),
+			currentTurn = '';
 		
+		currentTurn = attacker.name + attackVerb + defender.name + ' for ' + attackDamage + '!';
 		// modifications
 		defender.HP -= attackDamage;
 		attacker.meter -= attackCost;
-		
-		// update canvas
-		// $.panelsocketserver.updateDungeon(currentParty.users, 'playerStats');
-		// $.panelsocketserver.updateDungeon([attacker, defender], 'battleStats');
-		
-		//$.say(attacker.name + attackVerb + defender.name + ' for ' + attackDamage + ' damage.');
-		
-		if(defender.HP <= 0){
-			$.say(defender.name + ' was defeated!');
-			// if(attacker.isPlayer){
-				// combatDialog.push(defender.name + ' defeated by @' + attacker.name + '!');
-			// }
-			// else if(defender.isPlayer)
-			// {
-				// combatDialog.push('@' + defender.name + ' defeated by ' + attacker.name + '!');
-			// }
+				
+		if(defender.HP <= 0)
+		{
+			currentTurn += ' ' + defender.name + ' was defeated!';
+			combatDialog.push(currentTurn);
 			return true; // it died
 		}
+		
+		combatDialog.push(currentTurn);
 		return false; // it did not die
 	}
 	
@@ -383,8 +361,9 @@ var dungeonModule = (function() {
 			output = list[0].name;
 			if(list.length > 1){
 				for(var i = 1; i < list.length-1; i++)
+				{
 					output += ', ' + list[i].name;
-				
+				}
 				output += ', and ' + list[list.length-1].name;
 			}
 		}

@@ -33,7 +33,6 @@ var gameSystem = (function(){
 				if(!playerModule.exists(sender, currentFishers)){
 					currentFishers.push(new Fisherman(sender));	
 					$.say(sender + ' casts out a line.. ');
-					//$.panelsocketserver.updatePanel([], 'fishing');
 					
 					setTimeout(function(){
 						var fish = fishingModule.castLine(sender); //  starts everything
