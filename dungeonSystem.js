@@ -75,8 +75,8 @@ var dungeonModule = (function() {
 	// Name, Health, Attack, Speed
 	function initMonsters(){
 		monsterList = [
-			new Creature('Slimemoss', 3, 3, 10),
-			new Creature('Omnom', 6, 4, 12)
+			new Creature('Slimemoss', 3, 3, 10)//,
+			// new Creature('Omnom', 6, 4, 12)
 			// new Creature('Lizardman', 11, 9, 8),
 			// new Creature('Wisp', 5, 4, 10),
 			// new Creature('Lilith', 6, 6, 10)
@@ -89,11 +89,27 @@ var dungeonModule = (function() {
     var monsters = [],
 		maxNumOfMonsters = currentParty.users.length + 1;
 		numOfMonsters = Math.random() * (maxNumOfMonsters - 1) + 1;
+		
+	var name, counts = {};
 	
     for(var i = 0; i < numOfMonsters; i++){
       var monster = monsterList[Math.floor(Math.random() * monsterList.length)];
+	  
+	  // check if monster already exists in list
+	  if(exists(monster, monsters)){
+		  // recount the number of monsters with the same name
+		  monsters.forEach(function(mon){
+			  counts[mon.name] = (counts[mon.name] || 0) + 1; 
+		  });
+		  name = monster.name + ' #' + (counts[monster.name]+1);
+	  }
+	  else
+	  {
+		  name = monster.name;
+	  }
+	  
       monsters.push({
-        name: monster.name + ' #' + (i+1),
+        name: name,
         HP: monster.HP,
 		maxHP: monster.HP,
         ATK: monster.ATK,
@@ -104,6 +120,23 @@ var dungeonModule = (function() {
     }
     return monsters;
   }
+	
+	
+	/**
+	* @function exists
+	* @param {string} actor, {objectType} list
+	* @returns {boolean}
+	*/
+	
+	function exists(actor, list){
+		for(var i = 0; i < list.length; i++)
+		{
+			if(list[i].name == actor.name){
+				return true;
+			}
+			return false;
+		}
+	}
 	
     /**
      * @function checkUserAlreadyJoined
@@ -159,7 +192,7 @@ var dungeonModule = (function() {
 		function(){
 			if(progress < combatDialog.length)
 			{
-				$.say(combatDialog[progress]);
+				$.panelsocketserver.updateDungeon(combatDialog[progress]);
 			}
 			else
 			{
@@ -174,14 +207,17 @@ var dungeonModule = (function() {
 		currentParty.state = state.inProgress; // dungeon in progress
 		numOfTotalFights = Math.floor(Math.random() * currentParty.users.length + 1); // set number of fights based on party size+1
 		partyVictory = true;
+		$.say(currentParty.users.length > 1 ? 'The party sets off into the dungeon...' : 'The adventurer sets off alone into the dungeon..');
 		mainUpdateLoop(); // start loop
 	}
 	
 	function endDungeon(){
+		var clearMessage = currentParty.users.length > 1 ? getList(currentParty) + ' return' : currentParty.users[0].name +  ' returns';
+
 		if(partyVictory){
-			$.say('The adventurers have returned!');
+			$.panelsocketserver.updateDungeon(clearMessage + ' victorious.');
 		}else{
-			$.say('The adventurers return battered...');
+			$.panelsocketserver.updateDungeon(clearMessage + ' wounded and worse for wear.');
 		}
 		clearDungeon();
 	}
@@ -311,7 +347,7 @@ var dungeonModule = (function() {
 			attackVerb = getAttackVerb(attacker),
 			currentTurn = '';
 		
-		currentTurn = attacker.name + attackVerb + defender.name + ' for ' + attackDamage + '!';
+		currentTurn = attacker.name + attackVerb + defender.name + ' for ' + attackDamage + ' points of damage!';
 		// modifications
 		defender.HP -= attackDamage;
 		attacker.meter -= attackCost;
@@ -353,8 +389,13 @@ var dungeonModule = (function() {
 		var output = "";
 		
 		if(list.type == 'players'){
-			output = list.users[0].name + ' (' + list.users[0].job + ')';
-			for(var i = 1; i < list.users.length; i++) output += ', ' + list.users[i].name + ' (' + list.users[i].job + ')';;
+			output = list.users[0].name;
+			for(var i = 1; i < list.users.length-1; i++)
+			{
+				output += ', ' + list.users[i].name;
+			}
+			
+			output += list.users.length > 2 ? ', and ' : ' and ' + list.users[list.users.length-1].name;
 		}
 		else if(list.type == 'monsters')
 		{
@@ -364,7 +405,7 @@ var dungeonModule = (function() {
 				{
 					output += ', ' + list[i].name;
 				}
-				output += ', and ' + list[list.length-1].name;
+				output += list.length > 2 ? ', and ' : ' and ' + list[list.length-1].name;
 			}
 		}
 		return output;
